@@ -292,7 +292,8 @@ def set_infer_dir():
     """
     if not os.path.exists('outputs/inference'):
         os.makedirs('outputs/inference')
-    num_infer_dirs_present = len(os.listdir('outputs/inference/'))
+    num_infer_dirs_present = \
+        len([x for x in os.listdir('outputs/inference/') if os.path.isdir(f"outputs/inference/{x}")])
     next_dir_num = num_infer_dirs_present + 1
     new_dir_name = f"outputs/inference/res_{next_dir_num}"
     os.makedirs(new_dir_name, exist_ok=True)

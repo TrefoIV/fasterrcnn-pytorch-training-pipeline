@@ -90,8 +90,15 @@ def parse_opt():
         help='batch size to load the data'
     )
     parser.add_argument(
-        '-ims', '--img-size',
-        dest='img_size', 
+        '-imw', '--img-width',
+        dest='img_width', 
+        default=640, 
+        type=int, 
+        help='image width to feed to the network'
+    )
+    parser.add_argument(
+        '-imh', '--img-height',
+        dest='img_height', 
         default=640, 
         type=int, 
         help='image size to feed to the network'
@@ -113,6 +120,12 @@ def parse_opt():
         '-nm', '--no-mosaic', 
         dest='no_mosaic', 
         action='store_false',
+        help='pass this to not to use mosaic augmentation'
+    )
+    parser.add_argument(
+        '-dn', '--discard-negative', 
+        dest='discard_negative', 
+        action='store_true',
         help='pass this to not to use mosaic augmentation'
     )
     parser.add_argument(
@@ -155,6 +168,7 @@ def parse_opt():
         type=str,
         help='url ysed to set up the distributed training'
     )
+
     args = vars(parser.parse_args())
     return args
 
@@ -190,18 +204,20 @@ def main(args):
     yaml_save(file_path=os.path.join(OUT_DIR, 'opt.yaml'), data=args)
 
     # Model configurations
-    IMAGE_WIDTH = args['img_size']
-    IMAGE_HEIGHT = args['img_size']
+    IMAGE_WIDTH = args['img_width']
+    IMAGE_HEIGHT = args['img_height']
     
     train_dataset = create_train_dataset(
         TRAIN_DIR_IMAGES, TRAIN_DIR_LABELS,
         IMAGE_WIDTH, IMAGE_HEIGHT, CLASSES,
         use_train_aug=args['use_train_aug'],
-        mosaic=args['no_mosaic']
+        mosaic=args['no_mosaic'],
+        discard_negative=args["discard_negative"]
     )
     valid_dataset = create_valid_dataset(
         VALID_DIR_IMAGES, VALID_DIR_LABELS, 
-        IMAGE_WIDTH, IMAGE_HEIGHT, CLASSES
+        IMAGE_WIDTH, IMAGE_HEIGHT, CLASSES,
+        discard_negative=args["discard_negative"]
     )
     print('Creating data loaders')
     if args['distributed']:
@@ -246,7 +262,7 @@ def main(args):
     if args['weights'] is None:
         print('Building model from scratch...')
         build_model = create_model[args['model']]
-        model = build_model(num_classes=NUM_CLASSES, pretrained=True)
+        model = build_model(num_classes=NUM_CLASSES, pretrained=False)
 
     # Load pretrained weights if path is provided.
     if args['weights'] is not None:

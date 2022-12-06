@@ -39,7 +39,23 @@ if __name__ == '__main__':
         help='path to trained checkpoint weights if providing custom YAML file'
     )
     parser.add_argument(
-        '-ims', '--img-size', dest='img_size', default=640, type=int, 
+        '-dn', '--discard-negative', 
+        dest='discard_negative', 
+        action='store_true',
+        help='pass this to not to use mosaic augmentation'
+    )
+    parser.add_argument(
+        '-imw', '--img-width',
+        dest='img_width', 
+        default=640, 
+        type=int, 
+        help='image width to feed to the network'
+    )
+    parser.add_argument(
+        '-imh', '--img-height',
+        dest='img_height', 
+        default=640, 
+        type=int, 
         help='image size to feed to the network'
     )
     parser.add_argument(
@@ -75,8 +91,8 @@ if __name__ == '__main__':
     BATCH_SIZE = args['batch_size']
 
     # Model configurations
-    IMAGE_WIDTH = args['img_size']
-    IMAGE_HEIGHT = args['img_size']
+    IMAGE_WIDTH = args['img_width']
+    IMAGE_HEIGHT = args['img_height']
 
     # Load the pretrained model
     create_model = create_model[args['model']]
@@ -89,7 +105,8 @@ if __name__ == '__main__':
             COCO_91_CLASSES = data_configs['COCO_91_CLASSES']
             valid_dataset = create_valid_dataset(
                 VALID_DIR_IMAGES, VALID_DIR_LABELS, 
-                IMAGE_WIDTH, IMAGE_HEIGHT, COCO_91_CLASSES
+                IMAGE_WIDTH, IMAGE_HEIGHT, COCO_91_CLASSES,
+                discard_negative=args["discard_negative"]
             )
 
     # Load weights.
@@ -99,7 +116,8 @@ if __name__ == '__main__':
         model.load_state_dict(checkpoint['model_state_dict'])
         valid_dataset = create_valid_dataset(
             VALID_DIR_IMAGES, VALID_DIR_LABELS, 
-            IMAGE_WIDTH, IMAGE_HEIGHT, CLASSES
+            IMAGE_WIDTH, IMAGE_HEIGHT, CLASSES,
+            discard_negative=args["discard_negative"]
         )
     model.to(DEVICE).eval()
     

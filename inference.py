@@ -28,6 +28,7 @@ def collect_all_images(dir_test):
         for file_type in image_file_types:
             test_images.extend(glob.glob(f"{dir_test}/{file_type}"))
     else:
+        print(dir_test)
         test_images.append(dir_test)
     return test_images    
 
@@ -69,7 +70,7 @@ def parse_opt():
         help='computation/training device, default is GPU if GPU present'
     )
     parser.add_argument(
-        '-ims', '--img-size', 
+        '-ims', '--img-size',
         default=None,
         dest='img_size',
         type=int,
@@ -80,6 +81,13 @@ def parse_opt():
         dest='no_labels',
         action='store_true',
         help='do not show labels during on top of bounding boxes'
+    )
+    parser.add_argument(
+        '-lw', '--line-width',
+        dest='line_width',
+        default=None,
+        type=int,
+        help='set line width for rectangles'
     )
     args = vars(parser.parse_args())
     return args
@@ -149,6 +157,7 @@ def main(args):
     # To keep adding the frames' FPS.
     total_fps = 0
     for i in range(len(test_images)):
+        print(f"Starting Image {i+1}")
         # Get the image file name for saving output later on.
         image_name = test_images[i].split(os.path.sep)[-1].split('.')[0]
         orig_image = cv2.imread(test_images[i])

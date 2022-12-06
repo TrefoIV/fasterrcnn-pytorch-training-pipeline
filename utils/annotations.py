@@ -13,13 +13,18 @@ def inference_annotations(
     height, width, _ = orig_image.shape
     boxes = outputs[0]['boxes'].data.numpy()
     scores = outputs[0]['scores'].data.numpy()
+    print(f"Boxes for Image: {len(boxes)}")
     # Filter out boxes according to `detection_threshold`.
     boxes = boxes[scores >= detection_threshold].astype(np.int32)
+    print(f"Boxes drawn after threshold: {len(boxes)}")
     draw_boxes = boxes.copy()
     # Get all the predicited class names.
     pred_classes = [classes[i] for i in outputs[0]['labels'].cpu().numpy()]
-
-    lw = max(round(sum(orig_image.shape) / 2 * 0.003), 2)  # Line width.
+    # Sets line width.
+    if args["line_width"] is not None:
+        lw = args["line_width"]
+    else:
+        lw = max(round(sum(orig_image.shape) / 2 * 0.003), 2) 
     tf = max(lw - 1, 1) # Font thickness.
     
     # Draw the bounding boxes and write the class name on top of it.
@@ -52,7 +57,7 @@ def inference_annotations(
                 p1, 
                 p2, 
                 color=color, 
-                thickness=-1, 
+                thickness=lw, 
                 lineType=cv2.LINE_AA
             )  
             cv2.putText(
@@ -61,7 +66,7 @@ def inference_annotations(
                 (p1[0], p1[1] - 5 if outside else p1[1] + h + 2),
                 cv2.FONT_HERSHEY_SIMPLEX, 
                 fontScale=lw / 3.8, 
-                color=(255, 255, 255), 
+                color=(0, 0, 0), 
                 thickness=tf, 
                 lineType=cv2.LINE_AA
             )

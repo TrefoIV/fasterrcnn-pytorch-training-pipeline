@@ -1,5 +1,7 @@
 data/*
 !data/README.md
+data_configs/*
+!data_congfigs/placeholder
 outputs/
 inference_outputs
 test.sh
