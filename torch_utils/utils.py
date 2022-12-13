@@ -290,9 +290,14 @@ def init_distributed_mode(args):
             print(f"Existing shared file {sharedFilePath}. Removing file...")
             os.remove(sharedFilePath)
     '''
-    print(f"| distributed init (rank {args['rank']}): {args['dist_url']}", flush=True)
+    if dist_url.startswith("file:///"):
+        sharedFilePath = "/".join(dist_url.split("/")[3:])
+        # Se il path è relativo
+        sharedFilePath = os.path.abspath(sharedFilePath)
+        dist_url = f"file:///{sharedFilePath}"
+    print(f"| distributed init (rank {args['rank']}): {dist_url}", flush=True)
     torch.distributed.init_process_group(
-        backend=args['dist_backend'], init_method=args['dist_url'], world_size=args['world_size'], rank=args['rank']
+        backend=args['dist_backend'], init_method=dist_url, world_size=args['world_size'], rank=args['rank']
     )
     torch.distributed.barrier()
     setup_for_distributed(args['rank'] == 0)
