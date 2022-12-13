@@ -329,8 +329,12 @@ def main(args):
 
     model = model.to(DEVICE)
     if args['distributed']:
+        if args["device"] == "cpu":
+            dev_ids = None
+        else:
+            dev_ids = [args['gpu']]
         model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args['gpu']]
+            model, device_ids=dev_ids
         )
     torchinfo.summary(
         model, device=DEVICE,input_size=(BATCH_SIZE, 3, IMAGE_SIZE, IMAGE_SIZE)

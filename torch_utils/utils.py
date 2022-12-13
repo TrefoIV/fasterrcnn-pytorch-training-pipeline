@@ -273,9 +273,23 @@ def init_distributed_mode(args):
         return
 
     args['distributed'] = True
+    if args["device"] != "cpu":
+        torch.cuda.set_device(args['gpu'])
+        args['dist_backend'] = "nccl"
+    else:
+        args['dist_backend'] = "gloo"
+    dist_url :str = args['dist_url']
 
-    torch.cuda.set_device(args['gpu'])
-    args['dist_backend'] = "nccl"
+    '''
+    # Se voglio usare un file condiviso, controllo che nel path specificato il file non eista
+    # Se esiste lo cancello
+    if dist_url.startswith("file:///"):
+        sharedFilePath = "/".join(dist_url.split("/")[3:] )
+        print(f"SharedFilePath {sharedFilePath}")
+        if os.path.isfile(sharedFilePath):
+            print(f"Existing shared file {sharedFilePath}. Removing file...")
+            os.remove(sharedFilePath)
+    '''
     print(f"| distributed init (rank {args['rank']}): {args['dist_url']}", flush=True)
     torch.distributed.init_process_group(
         backend=args['dist_backend'], init_method=args['dist_url'], world_size=args['world_size'], rank=args['rank']
