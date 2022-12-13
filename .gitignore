@@ -7,6 +7,9 @@ inference_outputs
 test.sh
 *__pycache__/
 
+# Shared environment files
+environment
+
 # Weights and Biases
 wandb/*
 
