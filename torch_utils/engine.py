@@ -18,10 +18,11 @@ def train_one_epoch(
     train_loss_hist,
     print_freq, 
     scaler=None,
-    scheduler=None
+    scheduler=None,
+    log_info = False
 ):
     model.train()
-    metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger = utils.MetricLogger(log_info=log_info, delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
     header = f"Epoch: [{epoch}]"
 
@@ -48,7 +49,7 @@ def train_one_epoch(
         targets = [{k: v.to(device).to(torch.int64) for k, v in t.items()} for t in targets]
 
 
-        with torch.cuda.amp.autocast(enabled=scaler is not None):
+        with torch.autocast(device.type, enabled=scaler is not None):
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
 
