@@ -10,6 +10,7 @@ python train.py --model fasterrcnn_resnet50_fpn --epochs 2 --config data_configs
 # Training on ResNet50 FPN with custom project folder name with mosaic augmentation (ON by default) and added training augmentations:
 python train.py --model fasterrcnn_resnet50_fpn --epochs 2 --use-train-aug --config data_configs/voc.yaml --project-name resnet50fpn_voc --batch-size 4
 """
+import sys
 import datasets
 from torch_utils.engine import (
     train_one_epoch, evaluate, utils
@@ -181,11 +182,15 @@ def parse_opt():
 
 def main(args):
     # Initialize distributed mode.
-    utils.init_distributed_mode(args)
+    RANK = utils.init_distributed_mode(args)
+    DISTRIBUTED_MODE = args["distributed"]
+    def is_master():
+        return not DISTRIBUTED_MODE or RANK == 0
 
     # Initialize W&B with project name.
     if not args['disable_wandb']:
         wandb_init(name=args['project_name'])
+
     # Load the data configurations
     with open(args['config']) as file:
         data_configs = yaml.safe_load(file)
@@ -229,7 +234,7 @@ def main(args):
         discard_negative=args["discard_negative"]
     )
     print('Creating data loaders')
-    if args['distributed']:
+    if DISTRIBUTED_MODE:
         train_sampler = distributed.DistributedSampler(
             train_dataset
         )
@@ -320,7 +325,7 @@ def main(args):
                 val_map_05 = checkpoint['val_map_05']
 
     model = model.to(DEVICE)
-    if args['distributed']:
+    if DISTRIBUTED_MODE:
         if args["device"] == "cpu":
             dev_ids = None
         else:
@@ -377,7 +382,8 @@ def main(args):
             epoch, 
             train_loss_hist,
             print_freq=100,
-            scheduler=scheduler
+            scheduler=scheduler,
+            log_info=is_master()
         )
 
         coco_evaluator, stats, val_pred_image = evaluate(
@@ -389,6 +395,10 @@ def main(args):
             classes=CLASSES,
             colors=COLORS
         )
+        utils.builtin_print(f"RANK {RANK} - NON MASTER, SKIPPO LOGGING")
+        if not is_master(): 
+            utils.builtin_print(f"RANK {RANK} - NON MASTER, SKIPPO LOGGING")
+            continue
 
         # Append the current epoch's batch-wise losses to the `train_loss_list`.
         train_loss_list.extend(batch_loss_list)
