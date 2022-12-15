@@ -1,12 +1,14 @@
 import torchvision
 
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor, FasterRCNN_ResNet50_FPN_Weights
 from models.model_summary import summary
 
 def create_model(num_classes, pretrained=True, coco_model=False):
+    weights = FasterRCNN_ResNet50_FPN_Weights.COCO_V1 if pretrained else None
     # Load Faster RCNN pre-trained model
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        pretrained=pretrained
+        weights=weights
+        #pretrained=pretrained
     )
     if coco_model: # Return the COCO pretrained model for COCO classes.
         return model, coco_model
