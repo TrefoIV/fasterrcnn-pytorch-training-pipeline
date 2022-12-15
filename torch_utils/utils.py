@@ -113,9 +113,10 @@ def reduce_dict(input_dict, average=True):
 
 
 class MetricLogger:
-    def __init__(self, delimiter="\t"):
+    def __init__(self, log_info:False, delimiter="\t"):
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
+        self.log_info = log_info
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -153,22 +154,23 @@ class MetricLogger:
         iter_time = SmoothedValue(fmt="{avg:.4f}")
         data_time = SmoothedValue(fmt="{avg:.4f}")
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
-        if torch.cuda.is_available():
-            log_msg = self.delimiter.join(
-                [
-                    header,
-                    "[{0" + space_fmt + "}/{1}]",
-                    "eta: {eta}",
-                    "{meters}",
-                    "time: {time}",
-                    "data: {data}",
-                    "max mem: {memory:.0f}",
-                ]
-            )
-        else:
-            log_msg = self.delimiter.join(
-                [header, "[{0" + space_fmt + "}/{1}]", "eta: {eta}", "{meters}", "time: {time}", "data: {data}"]
-            )
+        if self.log_info:
+            if torch.cuda.is_available():
+                log_msg = self.delimiter.join(
+                    [
+                        header,
+                        "[{0" + space_fmt + "}/{1}]",
+                        "eta: {eta}",
+                        "{meters}",
+                        "time: {time}",
+                        "data: {data}",
+                        "max mem: {memory:.0f}",
+                    ]
+                )
+            else:
+                log_msg = self.delimiter.join(
+                    [header, "[{0" + space_fmt + "}/{1}]", "eta: {eta}", "{meters}", "time: {time}", "data: {data}"]
+                )
         MB = 1024.0 * 1024.0
         for obj in iterable:
             data_time.update(time.time() - end)
@@ -177,6 +179,7 @@ class MetricLogger:
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+                
                 if torch.cuda.is_available():
                     log(
                         log_msg.format(
@@ -213,16 +216,17 @@ def mkdir(path):
         if e.errno != errno.EEXIST:
             raise
 
-
+builtin_print = None
 def setup_for_distributed(is_master):
     """
     This function disables printing when not in master process
     """
     import builtins as __builtin__
-
+    global builtin_print                    #TODO togli sta global di debugging 
     builtin_print = __builtin__.print
 
     def print(*args, **kwargs):
+        global builtin_print
         force = kwargs.pop("force", False)
         if is_master or force:
             builtin_print(*args, **kwargs)
@@ -270,7 +274,7 @@ def init_distributed_mode(args):
     else:
         print("Not using distributed mode")
         args['distributed'] = False
-        return
+        return 0
 
     args['distributed'] = True
     if args["device"] != "cpu":
@@ -296,3 +300,4 @@ def init_distributed_mode(args):
     )
     torch.distributed.barrier()
     setup_for_distributed(args['rank'] == 0)
+    return args["rank"]

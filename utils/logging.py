@@ -9,7 +9,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 
 # Initialize Weights and Biases.
 def wandb_init(name):
-    wandb.init(name=name)
+    wandb.init(name=name, group="DScalograms", mode="offline")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
