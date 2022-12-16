@@ -402,7 +402,8 @@ def main(args):
             save_valid_preds=SAVE_VALID_PREDICTIONS,
             out_dir=OUT_DIR,
             classes=CLASSES,
-            colors=COLORS
+            colors=COLORS,
+            log_info=is_master()
         )
         utils.builtin_print(f"RANK {RANK} - NON MASTER, SKIPPO LOGGING")
         if not is_master(): 
