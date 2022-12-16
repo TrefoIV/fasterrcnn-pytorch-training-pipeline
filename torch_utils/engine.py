@@ -161,7 +161,7 @@ def evaluate(
             )
 
     # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
+    metric_logger.synchronize_between_processes(device=device)
     print("Averaged stats:", metric_logger)
     coco_evaluator.synchronize_between_processes()
 
