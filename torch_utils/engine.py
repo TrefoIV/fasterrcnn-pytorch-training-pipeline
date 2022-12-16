@@ -119,14 +119,15 @@ def evaluate(
     save_valid_preds=False,
     out_dir=None,
     classes=None,
-    colors=None
+    colors=None,
+    log_info = False
 ):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
     model.eval()
-    metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger = utils.MetricLogger(log_info=log_info, delimiter="  ")
     header = "Test:"
 
     coco = get_coco_api_from_dataset(data_loader.dataset)

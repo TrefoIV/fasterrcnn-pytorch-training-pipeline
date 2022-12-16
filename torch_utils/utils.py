@@ -113,7 +113,7 @@ def reduce_dict(input_dict, average=True):
 
 
 class MetricLogger:
-    def __init__(self, log_info:False, delimiter="\t"):
+    def __init__(self, log_info=False, delimiter="\t"):
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
         self.log_info = log_info
@@ -202,7 +202,8 @@ class MetricLogger:
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        log(f"{header} Total time: {total_time_str} ({total_time / len(iterable):.4f} s / it)")
+        if self.log_info:
+            log(f"{header} Total time: {total_time_str} ({total_time / len(iterable):.4f} s / it)")
 
 
 def collate_fn(batch):
