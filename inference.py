@@ -74,7 +74,24 @@ def parse_opt():
         default=None,
         dest='img_size',
         type=int,
-        help='resize image to, by default use the original frame/image size'
+        help='resize image to, by default use the original frame/image size.\
+            Using this parameter makes img-width and img-height params uneffective.'
+    )
+    parser.add_argument(
+        '-imw', '--img-width',
+        dest='img_width', 
+        default=None, 
+        type=int, 
+        help='image width to resize to, by default use original frame/image size. \
+            This parametes is effective only if image height is also set and img-size is not set.'
+    )
+    parser.add_argument(
+        '-imh', '--img-height',
+        dest='img_height', 
+        default=None, 
+        type=int, 
+        help='image height to resize to, by default use original frame/image size. \
+            This parametes is effective only if image width is also set and img-size is not set.'
     )
     parser.add_argument(
         '-nlb', '--no-labels',
@@ -159,14 +176,18 @@ def main(args):
     for i in range(len(test_images)):
         print(f"Starting Image {i+1}")
         # Get the image file name for saving output later on.
-        image_name = test_images[i].split(os.path.sep)[-1].split('.')[0]
+        image_name = ".".join(test_images[i].split(os.path.sep)[-1].split('.')[:-1])
         orig_image = cv2.imread(test_images[i])
         frame_height, frame_width, _ = orig_image.shape
+        
         if args['img_size'] != None:
             RESIZE_TO = (args['img_size'], args['img_size'])
+        elif args["img_height"] != None and args["img_width"] != None:
+            RESIZE_TO = (args["img_width"], args["img_height"])
         else:
             RESIZE_TO = (frame_width, frame_height)
-        # orig_image = image.copy()
+        
+        #orig_image = image.copy()
         image_resized = cv2.resize(orig_image, RESIZE_TO)
         image = image_resized.copy()
         # BGR to RGB
@@ -208,6 +229,17 @@ def main(args):
         cv2.imwrite(f"{OUT_DIR}/{image_name}.jpg", orig_image)
         print(f"Image {i+1} done...")
         print('-'*50)
+    # At the end, exoport parameter used
+    with open("./outputs/inference/parametri.txt", "a") as parameters_file:
+        run_name = OUT_DIR.split("/")[-1]
+        parameters_file.write(f"\n{run_name}\n\n")
+        if args["img_size"] != None or (args["img_height"] != None and args["img_width"] != None):
+            parameters_file.write(f"Image widht: {RESIZE_TO[0]}  Image height: {RESIZE_TO[1]}\n")
+        else:
+            parameters_file.write(f"Image size: Original for all images\t\t\tLast: ({RESIZE_TO[0]}, {RESIZE_TO[1]})\n")
+        parameters_file.write(f"Threshold: {detection_threshold}\n")
+        parameters_file.write("-"*50)
+
 
     print('TEST PREDICTIONS COMPLETE')
     cv2.destroyAllWindows()
