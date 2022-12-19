@@ -122,52 +122,52 @@ def evaluate(
     colors=None,
     log_info = False
 ):
-    n_threads = torch.get_num_threads()
-    # FIXME remove this and make paste_masks_in_image run on the GPU
-    torch.set_num_threads(1)
-    cpu_device = torch.device("cpu")
-    model.eval()
-    metric_logger = utils.MetricLogger(log_info=log_info, delimiter="  ")
-    header = "Test:"
+    with torch.inference_mode():
+        n_threads = torch.get_num_threads()
+        # FIXME remove this and make paste_masks_in_image run on the GPU
+        torch.set_num_threads(1)
+        cpu_device = torch.device("cpu")
+        model.eval()
+        metric_logger = utils.MetricLogger(log_info=log_info, delimiter="  ")
+        header = "Test:"
 
-    coco = get_coco_api_from_dataset(data_loader.dataset)
-    iou_types = _get_iou_types(model)
-    coco_evaluator = CocoEvaluator(coco, iou_types)
+        coco = get_coco_api_from_dataset(data_loader.dataset)
+        iou_types = _get_iou_types(model)
+        coco_evaluator = CocoEvaluator(coco, iou_types)
 
-    counter = 0
-    for images, targets in metric_logger.log_every(data_loader, 100, header):
-        counter += 1
-        images = list(img.to(device) for img in images)
+        counter = 0
+        for images, targets in metric_logger.log_every(data_loader, 100, header):
+            counter += 1
+            images = list(img.to(device) for img in images)
 
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        model_time = time.time()
-        outputs = model(images)
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            model_time = time.time()
+            outputs = model(images)
 
-        outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
-        model_time = time.time() - model_time
+            outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+            model_time = time.time() - model_time
 
-        res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
-        evaluator_time = time.time()
-        coco_evaluator.update(res)
-        evaluator_time = time.time() - evaluator_time
-        metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
+            res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
+            evaluator_time = time.time()
+            coco_evaluator.update(res)
+            evaluator_time = time.time() - evaluator_time
+            metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
 
-        if save_valid_preds and counter == 1:
-            # The validation prediction image which is saved to disk
-            # is returned here which is again returned at the end of the
-            # function for WandB logging.
-            val_saved_image = save_validation_results(
-                images, outputs, counter, out_dir, classes, colors
-            )
+            if save_valid_preds and counter == 1:
+                # The validation prediction image which is saved to disk
+                # is returned here which is again returned at the end of the
+                # function for WandB logging.
+                val_saved_image = save_validation_results(
+                    images, outputs, counter, out_dir, classes, colors
+                )
+        # gather the stats from all processes
+        metric_logger.synchronize_between_processes(device=device)
+        print("Averaged stats:", metric_logger)
+        coco_evaluator.synchronize_between_processes()
 
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes(device=device)
-    print("Averaged stats:", metric_logger)
-    coco_evaluator.synchronize_between_processes()
-
-    # accumulate predictions from all images
-    coco_evaluator.accumulate()
-    stats = coco_evaluator.summarize()
-    torch.set_num_threads(n_threads)
+        # accumulate predictions from all images
+        coco_evaluator.accumulate()
+        stats = coco_evaluator.summarize()
+        torch.set_num_threads(n_threads)
     return coco_evaluator, stats, val_saved_image
