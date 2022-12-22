@@ -14,7 +14,7 @@ python train.py --config data_configs/sequences.yaml --device cpu --epochs 100 -
 ########## INFERENCE #############
 ##################################
 
-python inference.py --config ./data_configs/sequences.yaml --input ./data/scalograms/test/14-98-2-0_24_45-61-0-85_png.rf.8cc2612eadd1727ea78d104d4673c630.jpg --model fasterrcnn_resnet50_fpn -ims 640 --weights outputs/training/scalograms/best_model.pth --no-labels -lw 4
+python inference.py --config ./data_configs/sequences.yaml --input ./data/scalograms/test-chopped --model fasterrcnn_resnet50_fpn --weights outputs/training/scalograms/best_model.pth --no-labels -lw 4 --threshold 0.9
 
 ##################################
 ############# EVAL ###############
