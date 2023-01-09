@@ -226,8 +226,6 @@ def main(args):
     # Model configurations
     IMAGE_SIZE = args['img_size']
     
-    print(f"train aug: {args['use_train_aug']}, square: {args['square_training']}, cosine: {args['cosine_annealing']}")
-
     train_dataset = create_train_dataset(
         TRAIN_DIR_IMAGES, 
         TRAIN_DIR_LABELS,
@@ -247,7 +245,6 @@ def main(args):
         discard_negative=args["discard_negative"]
     )
     print('Creating data loaders')
-    print(f"len dataset train: {len(train_dataset)}")
     if args['distributed']:
         train_sampler = distributed.DistributedSampler(
             train_dataset
