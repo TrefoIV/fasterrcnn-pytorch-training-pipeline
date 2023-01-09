@@ -105,7 +105,8 @@ if __name__ == '__main__':
                 VALID_DIR_LABELS, 
                 IMAGE_SIZE, 
                 COCO_91_CLASSES, 
-                square_training=args['square_training']
+                square_training=args['square_training'],
+                discard_negative=args["discard_negative"]
             )
 
     # Load weights.
@@ -118,7 +119,8 @@ if __name__ == '__main__':
             VALID_DIR_LABELS, 
             IMAGE_SIZE, 
             CLASSES,
-            square_training=args['square_training']
+            square_training=args['square_training'],
+            discard_negative=args["discard_negative"]
         )
     model.to(DEVICE).eval()
     
