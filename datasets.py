@@ -143,12 +143,13 @@ class CustomDataset(Dataset):
             ymax_final = (ymax/image_height)*image_resized.shape[0]
             
             boxes.append([xmin_final, ymin_final, xmax_final, ymax_final])
-
+        '''
         #If boxes are empty, we should tell the network using a special box
         if len(labels) == 0:
             labels.append(self.classes.index("__background__"))
         if len(boxes) == 0:
             boxes.append([0,0,1,1])
+        '''
 
         # Bounding box to tensor.
         boxes_length = len(boxes)
