@@ -1,0 +1,19 @@
+# Images and labels direcotry should be relative to train.py
+TRAIN_DIR_IMAGES: './data/scalograms/train'
+TRAIN_DIR_LABELS: './data/scalograms/train'
+VALID_DIR_IMAGES: './data/scalograms/valid'
+VALID_DIR_LABELS: './data/scalograms/valid'
+TEST_DIR_IMAGES: './data/scalograms/test'
+TEST_DIR_LABELS: './data/scalograms/test'
+
+# Class names.
+CLASSES: [
+    '__background__',
+    'sequences'
+]
+
+# Number of classes (object classes + 1 for background class in Faster RCNN).
+NC: 2
+
+# Whether to save the predictions of the validation set while training.
+SAVE_VALID_PREDICTION_IMAGES: True
