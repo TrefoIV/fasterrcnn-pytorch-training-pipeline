@@ -19,7 +19,11 @@ def inference_annotations(
     # Get all the predicited class names.
     pred_classes = [classes[i] for i in outputs[0]['labels'].cpu().numpy()]
 
-    lw = max(round(sum(orig_image.shape) / 2 * 0.003), 2)  # Line width.
+    # Sets line width.
+    if args["line_width"] is not None:
+        lw = args["line_width"]
+    else:
+        lw = max(round(sum(orig_image.shape) / 2 * 0.003), 2)
     tf = max(lw - 1, 1) # Font thickness.
     
     # Draw the bounding boxes and write the class name on top of it.

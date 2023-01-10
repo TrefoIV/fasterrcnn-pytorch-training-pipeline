@@ -81,6 +81,13 @@ def parse_opt():
         action='store_true',
         help='do not show labels during on top of bounding boxes'
     )
+    parser.add_argument(
+        '-lw', '--line-width',
+        dest='line_width',
+        default=None,
+        type=int,
+        help='set line width for rectangles'
+    )
     args = vars(parser.parse_args())
     return args
 
