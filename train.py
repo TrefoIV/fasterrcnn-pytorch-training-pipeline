@@ -16,7 +16,9 @@ from torch_utils.engine import (
 from torch.utils.data import (
     distributed, BatchSampler, RandomSampler, SequentialSampler
 )
-from datasets import (
+
+# Change this to just dataset to load images instead of matrixes
+from matrix_datasets import (
     create_train_dataset, create_valid_dataset, 
     create_train_loader, create_valid_loader
 )
