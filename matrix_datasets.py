@@ -1,20 +1,15 @@
+from typing import Dict, Union
 import torch
 import cv2
 import numpy as np
 import os
 import glob as glob
 import random
+import csv
 from copy import copy
 
 from xml.etree import ElementTree as et
 from torch.utils.data import Dataset, DataLoader
-from utils.transforms import (
-    get_train_transform, 
-    get_valid_transform,
-    get_train_aug,
-    transform_mosaic
-)
-
 
 # the dataset class
 class MatrixDataset(Dataset):
@@ -25,22 +20,16 @@ class MatrixDataset(Dataset):
         img_size, 
         classes, 
         transforms=None, 
-        use_train_aug=False,
-        train=False, 
-        no_mosaic=False,
-        square_training=False,
+        train=False,
         discard_negative_example = True
     ):
         self.transforms = transforms
-        self.use_train_aug = use_train_aug
         self.images_path = images_path
         self.labels_path = labels_path
         self.img_size = img_size
         self.classes = classes
         self.train = train
-        self.no_mosaic = no_mosaic
-        self.square_training = square_training
-        self.all_images = []
+        self.all_images: list[str] = []
 
         self.all_annot_paths = glob.glob(os.path.join(self.labels_path, '*.xml'))
 
@@ -52,7 +41,7 @@ class MatrixDataset(Dataset):
         def check_path_and_save_image(path):
             tree = et.parse(path)
             root = tree.getroot()
-            image_name = root.findtext("filename")
+            image_name: str = root.findtext("filename")
             image_path = os.path.join(self.images_path, image_name)
             discard_path = False
             if not os.path.exists(image_path):
@@ -76,31 +65,34 @@ class MatrixDataset(Dataset):
 
         self.all_annot_paths = list(filter(check_path_and_save_image, self.all_annot_paths ))
 
+    def read_matrix_file(self, path: str):
+        reader = csv.reader(open(path, "r"), delimiter=",")
+        x = list(reader)
+        result = np.array(x).astype(np.int32)
+        return result
+
     def load_image_and_labels(self, index):
         image_name = self.all_images[index]
-        image_path = os.path.join(self.images_path, image_name)
+        image_path: str = os.path.join(self.images_path, image_name)
 
         # Read the image.
-        image = cv2.imread(image_path)
-        # Convert BGR to RGB color format.
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
-        image_resized = self.resize(image, square=self.square_training)
-        image_resized /= 255.0
+        image = self.read_matrix_file(image_path)
+
+        # Get the height and width of the image.
+        image_width: int = image.shape[1]
+        image_height: int = image.shape[0]
         
         # Capture the corresponding XML file for getting the annotations.
         annot_filename = os.path.splitext(image_name)[0] + '.xml'
         annot_file_path = os.path.join(self.labels_path, annot_filename)
 
+        tree = et.parse(annot_file_path)
+        root = tree.getroot()
+
         boxes = []
         orig_boxes = []
         labels = []
-        tree = et.parse(annot_file_path)
-        root = tree.getroot()
         
-        # Get the height and width of the image.
-        image_width = image.shape[1]
-        image_height = image.shape[0]
-                
         # Box coordinates for xml files are extracted and corrected for image size given.
         for member in root.findall('object'):
             # Map the current object name to `classes` list to get
@@ -116,24 +108,20 @@ class MatrixDataset(Dataset):
             # ymax = right corner y-coordinates
             ymax = int(float(member.find('bndbox').find('ymax').text))
 
-            xmin, ymin, xmax, ymax = self.check_image_and_annotation(
-                xmin, ymin, xmax, ymax, image_width, image_height
-            )
-
             orig_boxes.append([xmin, ymin, xmax, ymax])
             
             # Resize the bounding boxes according to the
             # desired `width`, `height`.
-            xmin_final = (xmin/image_width)*image_resized.shape[1]
-            xmax_final = (xmax/image_width)*image_resized.shape[1]
-            ymin_final = (ymin/image_height)*image_resized.shape[0]
-            ymax_final = (ymax/image_height)*image_resized.shape[0]
+            xmin_final = xmin.shape[1]
+            xmax_final = xmax.shape[1]
+            ymin_final = ymin.shape[0]
+            ymax_final = ymax.shape[0]
             
             boxes.append([xmin_final, ymin_final, xmax_final, ymax_final])
 
         # Bounding box to tensor.
         boxes_length = len(boxes)
-        boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        boxes = torch.as_tensor(boxes, dtype=torch.int32)
 
         # Area of the bounding boxes.
 
@@ -141,62 +129,14 @@ class MatrixDataset(Dataset):
         # No crowd instances.
         iscrowd = torch.zeros((boxes.shape[0],), dtype=torch.int64) if boxes_length > 0 else torch.as_tensor(boxes, dtype=torch.float32)
         # Labels to tensor.
-        labels = torch.as_tensor(labels, dtype=torch.int64)
-        return image, image_resized, orig_boxes, \
-            boxes, labels, area, iscrowd, (image_width, image_height)
+        labels = torch.as_tensor(labels, dtype=torch.int32)
+        return image, orig_boxes, boxes, labels, area, iscrowd, (image_width, image_height)
 
-    def check_image_and_annotation(self, xmin, ymin, xmax, ymax, width, height):
-        """
-        Check that all x_max and y_max are not more than the image
-        width or height.
-        """
-        if ymax > height:
-            ymax = height
-        if xmax > width:
-            xmax = width
-        return xmin, ymin, xmax, ymax
-
-    def __getitem__(self, idx):
-        # Capture the image name and the full image path.
-        if self.no_mosaic:
-            image, image_resized, orig_boxes, boxes, \
-                labels, area, iscrowd, dims = self.load_image_and_labels(
-                index=idx
-            )
-
-        if self.train and not self.no_mosaic:
-            #while True:
-            image_resized, boxes, labels, \
-                area, iscrowd, dims = self.load_cutmix_image_and_boxes(
-                idx, resize_factor=(self.img_size, self.img_size)
-            )
-                # Only needed if we don't allow training without target bounding boxes
-               # if len(boxes) > 0:
-               #     break
-        
-        # visualize_mosaic_images(boxes, labels, image_resized, self.classes)
-
-        # Prepare the final `target` dictionary.
-        target = {}
-        target["boxes"] = boxes
-        target["labels"] = labels
-        target["area"] = area
-        target["iscrowd"] = iscrowd
-        image_id = torch.tensor([idx])
-        target["image_id"] = image_id
-
-
-        sample = self.transforms(image=image_resized,
-                                    bboxes=target['boxes'],
-                                    labels=labels)
-        image_resized = sample['image']
-        target['boxes'] = torch.Tensor(sample['bboxes']).to(torch.int64)
-
-        # Fix to enable training without target bounding boxes,
-        # see https://discuss.pytorch.org/t/fasterrcnn-images-with-no-objects-present-cause-an-error/117974/4
-        if np.isnan((target['boxes']).numpy()).any() or target['boxes'].shape == torch.Size([0]):
-            target['boxes'] = torch.zeros((0, 4), dtype=torch.int64)
-        return image_resized, target
+    def __getitem__(self, idx: int) -> Dict[str, Union[int, np.ndarray]]:
+        return dict(
+            x=np.eye(3) * idx,
+            y=idx,
+        )
 
     def __len__(self):
         return len(self.all_images)
