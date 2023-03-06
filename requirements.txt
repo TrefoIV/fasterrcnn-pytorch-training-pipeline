@@ -10,10 +10,10 @@ PyYAML
 scikit-image
 scikit-learn
 scipy
-torch==1.12.0
-torchvision==0.13.0
+torch
+torchvision
 numpy
-protobuf<=3.20.1
+protobuf
 pandas
 tqdm
 
@@ -26,5 +26,5 @@ torchinfo
 
 # Extras-----------------------------------
 pycocotools>=2.0.2
-setuptools==59.5.0
+setuptools
 torchmetrics # Evaluation

@@ -19,12 +19,12 @@ from torch.utils.data import (
 
 # Change this to just dataset to load images instead of matrixes
 from matrix_datasets import (
-    create_train_dataset, create_valid_dataset, 
+    create_train_dataset, create_valid_dataset,
     create_train_loader, create_valid_loader
 )
 from models.create_fasterrcnn_model import create_model
 from utils.general import (
-    set_training_dir, Averager, 
+    set_training_dir, Averager,
     save_model, save_loss_plot,
     show_tranformed_image,
     save_mAP, save_model_state, SaveBestModel,
@@ -32,11 +32,11 @@ from utils.general import (
 )
 from utils.logging import (
     log, set_log, coco_log,
-    set_summary_writer, 
-    tensorboard_loss_log, 
+    set_summary_writer,
+    tensorboard_loss_log,
     tensorboard_map_log,
     csv_log,
-    wandb_log, 
+    wandb_log,
     wandb_save_model,
     wandb_init
 )
@@ -55,98 +55,106 @@ RANK = int(os.getenv('RANK', -1))
 # For same annotation colors each time.
 np.random.seed(42)
 
+
 def parse_opt():
     # Construct the argument parser.
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-m', '--model', 
+        '-m', '--model',
         default='fasterrcnn_resnet50_fpn_v2',
         help='name of the model'
     )
     parser.add_argument(
-        '-c', '--config', 
+        '-c', '--config',
         default=None,
         help='path to the data config file'
     )
     parser.add_argument(
-        '-d', '--device', 
+        '-d', '--device',
         default='cuda',
         help='computation/training device, default is GPU if GPU present'
     )
     parser.add_argument(
-        '-e', '--epochs', 
+        '-e', '--epochs',
         default=5,
         type=int,
         help='number of epochs to train for'
     )
     parser.add_argument(
-        '-j', '--workers', 
+        '-j', '--workers',
         default=4,
         type=int,
         help='number of workers for data processing/transforms/augmentations'
     )
     parser.add_argument(
-        '-b', '--batch-size', 
-        dest='batch_size', 
-        default=4, 
-        type=int, 
+        '-b', '--batch-size',
+        dest='batch_size',
+        default=4,
+        type=int,
         help='batch size to load the data'
     )
     parser.add_argument(
-        '-ims', '--img-size',
-        dest='img_size', 
-        default=640, 
-        type=int, 
-        help='image size to feed to the network'
+        '-imx', '--img-size-x',
+        dest='img_size_x',
+        default=640,
+        type=int,
+        help='image size X to feed to the network'
     )
     parser.add_argument(
-        '-pn', '--project-name', 
-        default=None, 
-        type=str, 
+        '-imy', '--img-size-y',
+        dest='img_size_y',
+        default=640,
+        type=int,
+        help='image size Y to feed to the network'
+    )
+    parser.add_argument(
+        '-pn', '--project-name',
+        default=None,
+        type=str,
         dest='project_name',
         help='training result dir name in outputs/training/, (default res_#)'
     )
     parser.add_argument(
-        '-vt', '--vis-transformed', 
-        dest='vis_transformed', 
+        '-vt', '--vis-transformed',
+        dest='vis_transformed',
         action='store_true',
         help='visualize transformed images fed to the network'
     )
     parser.add_argument(
-        '-nm', '--no-mosaic', 
-        dest='no_mosaic', 
+        '-nm', '--no-mosaic',
+        dest='no_mosaic',
         action='store_true',
         help='pass this to not to use mosaic augmentation'
     )
     parser.add_argument(
-        '-dn', '--discard-negative', 
-        dest='discard_negative', 
+        '-dn', '--discard-negative',
+        dest='discard_negative',
         action='store_true',
         help='pass this if you want to discard images with no objects'
     )
     parser.add_argument(
-        '-uta', '--use-train-aug', 
-        dest='use_train_aug', 
+        '-uta', '--use-train-aug',
+        dest='use_train_aug',
         action='store_true',
         help='whether to use train augmentation, uses some advanced \
             augmentation that may make training difficult when used \
             with mosaic'
     )
     parser.add_argument(
-        '-ca', '--cosine-annealing', 
-        dest='cosine_annealing', 
+        '-ca', '--cosine-annealing',
+        dest='cosine_annealing',
         action='store_true',
         help='use cosine annealing warm restarts'
     )
     parser.add_argument(
-        '-w', '--weights', 
-        default=None, 
+        '-w', '--weights',
+        default=None,
         type=str,
         help='path to model weights if using pretrained weights'
     )
     parser.add_argument(
-        '-r', '--resume-training', 
-        dest='resume_training', 
+        '-r', '--resume-training',
+        dest='resume_training',
         action='store_true',
         help='whether to resume training, if true, \
             loads previous training plots and epochs \
@@ -162,9 +170,9 @@ def parse_opt():
               square canvas.'
     )
     parser.add_argument(
-        '--world-size', 
-        default=1, 
-        type=int, 
+        '--world-size',
+        default=1,
+        type=int,
         help='number of distributed processes'
     )
     parser.add_argument(
@@ -183,12 +191,13 @@ def parse_opt():
     parser.add_argument(
         '--seed',
         default=0,
-        type=int ,
+        type=int,
         help='golabl seed for training'
     )
 
     args = vars(parser.parse_args())
     return args
+
 
 def main(args):
     # Initialize distributed mode.
@@ -202,17 +211,15 @@ def main(args):
         data_configs = yaml.safe_load(file)
 
     init_seeds(args['seed'] + 1 + RANK, deterministic=True)
-    
+
     # Settings/parameters/constants.
     TRAIN_DIR_IMAGES = os.path.normpath(data_configs['TRAIN_DIR_IMAGES'])
-    TRAIN_DIR_LABELS = os.path.normpath(data_configs['TRAIN_DIR_LABELS'])
-    VALID_DIR_IMAGES = os.path.normpath(data_configs['VALID_DIR_IMAGES'])
-    VALID_DIR_LABELS = os.path.normpath(data_configs['VALID_DIR_LABELS'])
+
     CLASSES = data_configs['CLASSES']
     NUM_CLASSES = data_configs['NC']
     NUM_WORKERS = args['workers']
     DEVICE = torch.device(args['device'])
-    print("device",DEVICE)
+    print("device", DEVICE)
     NUM_EPOCHS = args['epochs']
     SAVE_VALID_PREDICTIONS = data_configs['SAVE_VALID_PREDICTION_IMAGES']
     BATCH_SIZE = args['batch_size']
@@ -226,26 +233,24 @@ def main(args):
     yaml_save(file_path=os.path.join(OUT_DIR, 'opt.yaml'), data=args)
 
     # Model configurations
-    IMAGE_SIZE = args['img_size']
-    
-    train_dataset = create_train_dataset(
-        TRAIN_DIR_IMAGES, 
-        TRAIN_DIR_LABELS,
-        IMAGE_SIZE, 
+    IMAGE_SIZE = (args['img_size_x'], args['img_size_y'])
+
+    whole_dataset = create_train_dataset(
+        TRAIN_DIR_IMAGES,
+        TRAIN_DIR_IMAGES,
+        IMAGE_SIZE,
         CLASSES,
         use_train_aug=args['use_train_aug'],
         no_mosaic=args['no_mosaic'],
         square_training=args['square_training'],
         discard_negative=args["discard_negative"]
     )
-    valid_dataset = create_valid_dataset(
-        VALID_DIR_IMAGES, 
-        VALID_DIR_LABELS, 
-        IMAGE_SIZE, 
-        CLASSES,
-        square_training=args['square_training'],
-        discard_negative=args["discard_negative"]
-    )
+
+    train_size = int(0.8 * len(whole_dataset))
+    test_size = len(whole_dataset) - train_size
+    train_dataset, valid_dataset = torch.utils.data.random_split(whole_dataset, [train_size, test_size])
+
+
     print('Creating data loaders')
     if args['distributed']:
         train_sampler = distributed.DistributedSampler(
@@ -294,9 +299,9 @@ def main(args):
     # Load pretrained weights if path is provided.
     if args['weights'] is not None:
         print('Loading pretrained weights...')
-        
+
         # Load the pretrained checkpoint.
-        checkpoint = torch.load(args['weights'], map_location=DEVICE) 
+        checkpoint = torch.load(args['weights'], map_location=DEVICE)
         keys = list(checkpoint['model_state_dict'].keys())
         ckpt_state_dict = checkpoint['model_state_dict']
         # Get the number of classes from the loaded checkpoint.
@@ -315,7 +320,7 @@ def main(args):
             in_features=in_features, out_features=NUM_CLASSES, bias=True
         )
         model.roi_heads.box_predictor.bbox_pred = torch.nn.Linear(
-            in_features=in_features, out_features=NUM_CLASSES*4, bias=True
+            in_features=in_features, out_features=NUM_CLASSES * 4, bias=True
         )
 
         if args['resume_training']:
@@ -344,10 +349,11 @@ def main(args):
         )
     try:
         torchinfo.summary(
-            model, device=DEVICE, input_size=(BATCH_SIZE, 3, IMAGE_SIZE, IMAGE_SIZE)
+            model, device=DEVICE, input_size=(BATCH_SIZE, 1, IMAGE_SIZE[0], IMAGE_SIZE[1])
         )
     except:
         print(model)
+
     # Total parameters and trainable parameters.
     total_params = sum(p.numel() for p in model.parameters())
     print(f"{total_params:,} total parameters.")
@@ -359,7 +365,7 @@ def main(args):
     # Define the optimizer.
     optimizer = torch.optim.SGD(params, lr=0.001, momentum=0.9, nesterov=True)
     # optimizer = torch.optim.AdamW(params, lr=0.0001, weight_decay=0.0005)
-    if args['resume_training']: 
+    if args['resume_training']:
         # LOAD THE OPTIMIZER STATE DICTIONARY FROM THE CHECKPOINT.
         print('Loading optimizer state dictionary...')
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -369,7 +375,7 @@ def main(args):
         # If `steps = 5`, LR will slowly reduce to zero every 5 epochs.
         steps = NUM_EPOCHS + 10
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, 
+            optimizer,
             T_0=steps,
             T_mult=1,
             verbose=False
@@ -387,19 +393,19 @@ def main(args):
             batch_loss_box_reg_list, \
             batch_loss_objectness_list, \
             batch_loss_rpn_list = train_one_epoch(
-            model, 
-            optimizer, 
-            train_loader, 
-            DEVICE, 
-            epoch, 
+            model,
+            optimizer,
+            train_loader,
+            DEVICE,
+            epoch,
             train_loss_hist,
             print_freq=100,
             scheduler=scheduler
         )
 
         coco_evaluator, stats, val_pred_image = evaluate(
-            model, 
-            valid_loader, 
+            model,
+            valid_loader,
             device=DEVICE,
             save_valid_preds=SAVE_VALID_PREDICTIONS,
             out_dir=OUT_DIR,
@@ -409,7 +415,7 @@ def main(args):
 
         # Append the current epoch's batch-wise losses to the `train_loss_list`.
         train_loss_list.extend(batch_loss_list)
-        loss_cls_list.append(np.mean(np.array(batch_loss_cls_list,)))
+        loss_cls_list.append(np.mean(np.array(batch_loss_cls_list, )))
         loss_box_reg_list.append(np.mean(np.array(batch_loss_box_reg_list)))
         loss_objectness_list.append(np.mean(np.array(batch_loss_objectness_list)))
         loss_rpn_list.append(np.mean(np.array(batch_loss_rpn_list)))
@@ -423,24 +429,24 @@ def main(args):
         save_loss_plot(OUT_DIR, train_loss_list)
         # Save loss plot for epoch-wise list.
         save_loss_plot(
-            OUT_DIR, 
+            OUT_DIR,
             train_loss_list_epoch,
             'epochs',
             'train loss',
-            save_name='train_loss_epoch' 
+            save_name='train_loss_epoch'
         )
         # Save all the training loss plots.
         save_loss_plot(
-            OUT_DIR, 
-            loss_cls_list, 
-            'epochs', 
+            OUT_DIR,
+            loss_cls_list,
+            'epochs',
             'loss cls',
             save_name='train_loss_cls'
         )
         save_loss_plot(
-            OUT_DIR, 
-            loss_box_reg_list, 
-            'epochs', 
+            OUT_DIR,
+            loss_box_reg_list,
+            'epochs',
             'loss bbox reg',
             save_name='train_loss_bbox_reg'
         )
@@ -471,16 +477,16 @@ def main(args):
 
         # Save mAP plot using TensorBoard.
         tensorboard_map_log(
-            name='mAP', 
-            val_map_05=np.array(val_map_05), 
+            name='mAP',
+            val_map_05=np.array(val_map_05),
             val_map=np.array(val_map),
             writer=writer
         )
 
         coco_log(OUT_DIR, stats)
         csv_log(
-            OUT_DIR, 
-            stats, 
+            OUT_DIR,
+            stats,
             epoch,
             train_loss_list,
             loss_cls_list,
@@ -508,10 +514,10 @@ def main(args):
         # to resume training. It saves model state dict, number of
         # epochs trained for, optimizer state dict, and loss function.
         save_model(
-            epoch, 
-            model, 
-            optimizer, 
-            train_loss_list, 
+            epoch,
+            model,
+            optimizer,
+            train_loss_list,
             train_loss_list_epoch,
             val_map,
             val_map_05,
@@ -524,14 +530,14 @@ def main(args):
         # Save best model if the current mAP @0.5:0.95 IoU is
         # greater than the last hightest.
         save_best_model(
-            model, 
-            val_map[-1], 
-            epoch, 
+            model,
+            val_map[-1],
+            epoch,
             OUT_DIR,
             data_configs,
             args['model']
         )
-    
+
     # Save models to Weights&Biases.
     if not args['disable_wandb']:
         wandb_save_model(OUT_DIR)
@@ -540,4 +546,3 @@ def main(args):
 if __name__ == '__main__':
     args = parse_opt()
     main(args)
-
