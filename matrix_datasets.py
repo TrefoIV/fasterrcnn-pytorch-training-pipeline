@@ -83,6 +83,8 @@ class MatrixDataset(Dataset):
         result = np.array([x]).astype(np.float32)
         max_value: float = math.pow(2, (2 * result.shape[1]))
         result = result / max_value
+        result = np.repeat(result, repeats=50, axis=0)
+        print(result.shape)
         return torch.from_numpy(result)
 
     def load_image_and_labels(self, index):
